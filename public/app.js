@@ -5,22 +5,50 @@ marked.setOptions({
     }
 });
 
-let chatHistory = JSON.parse(localStorage.getItem('novahChatHistory')) || [];
+let chatHistory = [];
 let uploadedImage = null;
+
+// Safely load history to prevent crashes
+try {
+    chatHistory = JSON.parse(localStorage.getItem('novahChatHistory')) || [];
+} catch (e) {
+    chatHistory = [];
+    localStorage.removeItem('novahChatHistory');
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('apiKey').value = localStorage.getItem('novahApiKey') || '';
     document.getElementById('modelName').value = localStorage.getItem('novahModel') || 'gemini-2.5-flash';
     document.getElementById('systemInstruction').value = localStorage.getItem('novahSystem') || '';
     
+    // Image Compression & Loading
     document.getElementById('imageUpload').addEventListener('change', function(e) {
         const file = e.target.files[0];
+        if (!file) return;
+        
         const reader = new FileReader();
-        reader.onloadend = () => { 
-            uploadedImage = reader.result;
-            document.querySelector('.attach-btn').style.background = '#8ab4f8';
-        };
-        if (file) reader.readAsDataURL(file);
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                // Shrink image to prevent QuotaExceededError crash
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const scaleSize = MAX_WIDTH / img.width;
+                canvas.width = MAX_WIDTH;
+                canvas.height = img.height * scaleSize;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                uploadedImage = canvas.toDataURL('image/jpeg', 0.8);
+                
+                // Show preview UI
+                document.getElementById('imagePreview').src = uploadedImage;
+                document.getElementById('imagePreviewContainer').style.display = 'block';
+                document.querySelector('.attach-btn').style.color = '#8ab4f8';
+            }
+            img.src = event.target.result;
+        }
+        reader.readAsDataURL(file);
     });
 
     if (chatHistory.length > 0) {
@@ -31,7 +59,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-/* UI Controls */
+function removeImage() {
+    uploadedImage = null;
+    document.getElementById('imageUpload').value = '';
+    document.getElementById('imagePreviewContainer').style.display = 'none';
+    document.querySelector('.attach-btn').style.color = 'white';
+}
+
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 function openSettings() { document.getElementById('settingsModal').style.display = 'flex'; toggleSidebar(); }
 function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
@@ -62,7 +96,7 @@ function updateHistoryList() {
     if (firstMsg) {
         const item = document.createElement('div');
         item.className = 'history-item';
-        item.innerText = "💬 " + (typeof firstMsg.content === 'string' ? firstMsg.content.substring(0, 25) + '...' : 'Image Chat');
+        item.innerText = "💬 " + (typeof firstMsg.content === 'string' ? firstMsg.content.substring(0, 25) + '...' : 'Image Attached');
         list.appendChild(item);
     }
 }
@@ -73,10 +107,9 @@ function renderHistory() {
     chatHistory.forEach(msg => {
         if (msg.role !== 'system') appendMessageUI(msg.role, msg.content, false);
     });
-    MathJax.typesetPromise();
+    if (window.MathJax) MathJax.typesetPromise();
 }
 
-/* Chat Logic */
 async function sendMessage() {
     const input = document.getElementById('userInput');
     let text = input.value.trim();
@@ -92,26 +125,30 @@ async function sendMessage() {
     let messageContent = text;
     if (uploadedImage) {
         messageContent = [
-            { type: "text", text: text },
+            { type: "text", text: text || "What is in this image?" },
             { type: "image_url", image_url: { url: uploadedImage } }
         ];
     }
 
     chatHistory.push({ role: 'user', content: messageContent });
-    localStorage.setItem('novahChatHistory', JSON.stringify(chatHistory));
-    appendMessageUI('user', text, true);
+    
+    // Safely save history
+    try {
+        localStorage.setItem('novahChatHistory', JSON.stringify(chatHistory));
+    } catch (e) {
+        console.warn("History too large to save locally.");
+    }
+    
+    appendMessageUI('user', messageContent, true);
+    
+    // Reset inputs
     input.value = '';
-    document.querySelector('.attach-btn').style.background = '#333';
+    removeImage();
     
     const aiMessageDiv = appendMessageUI('ai', '', true);
-    uploadedImage = null;
-    document.getElementById('imageUpload').value = '';
 
-    // Prep messages array (inject system instruction if exists)
     let apiMessages = [...chatHistory];
-    if (systemInstruction) {
-        apiMessages.unshift({ role: "system", content: systemInstruction });
-    }
+    if (systemInstruction) apiMessages.unshift({ role: "system", content: systemInstruction });
 
     try {
         const response = await fetch('/api/chat', {
@@ -119,6 +156,8 @@ async function sendMessage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messages: apiMessages, apiKey, model })
         });
+
+        if (!response.ok) throw new Error("API Error");
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
@@ -145,18 +184,18 @@ async function sendMessage() {
         }
 
         chatHistory.push({ role: 'assistant', content: aiFullText });
-        localStorage.setItem('novahChatHistory', JSON.stringify(chatHistory));
+        try { localStorage.setItem('novahChatHistory', JSON.stringify(chatHistory)); } catch(e) {}
         updateHistoryList();
         
         addCopyButtons();
-        MathJax.typesetPromise();
+        if (window.MathJax) MathJax.typesetPromise();
 
     } catch (error) {
-        aiMessageDiv.innerHTML = "Error connecting to AI. Please check settings.";
+        aiMessageDiv.innerHTML = "Error connecting to AI. Please check your API key and model name.";
     }
 }
 
-function appendMessageUI(role, text, isNew) {
+function appendMessageUI(role, contentData, isNew) {
     const chatBox = document.getElementById('chatBox');
     const wrapper = document.createElement('div');
     wrapper.className = 'message-wrapper';
@@ -164,28 +203,34 @@ function appendMessageUI(role, text, isNew) {
     const avatar = document.createElement('div');
     if (role === 'user') {
         avatar.className = 'user-avatar';
-        avatar.innerText = '👤';
+        avatar.innerHTML = '<span class="material-icons-round" style="font-size: 18px;">person</span>';
     } else {
         avatar.className = 'ai-icon-small';
-        avatar.innerText = '✨';
+        avatar.innerHTML = '<span class="material-icons-round" style="font-size: 18px;">auto_awesome</span>';
     }
 
-    const content = document.createElement('div');
-    content.className = 'message-content';
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
     
     if (role === 'user') {
-        content.textContent = typeof text === 'string' ? text : "Image + Text sent";
+        if (Array.isArray(contentData)) {
+            // Render the attached image in the chat
+            contentDiv.innerHTML = `<img src="${contentData[1].image_url.url}" style="max-width: 250px; border-radius: 8px; display: block; margin-bottom: 10px;">` + 
+                                   (contentData[0].text || "");
+        } else {
+            contentDiv.textContent = contentData;
+        }
     } else {
-        content.innerHTML = isNew ? '<div class="typing-indicator">...</div>' : marked.parse(text);
+        contentDiv.innerHTML = isNew ? '<div style="color: #888;">Thinking...</div>' : marked.parse(contentData);
     }
     
     wrapper.appendChild(avatar);
-    wrapper.appendChild(content);
+    wrapper.appendChild(contentDiv);
     chatBox.appendChild(wrapper);
     
     window.scrollTo(0, document.body.scrollHeight);
     if (!isNew && role === 'ai') addCopyButtons();
-    return content;
+    return contentDiv;
 }
 
 function addCopyButtons() {
