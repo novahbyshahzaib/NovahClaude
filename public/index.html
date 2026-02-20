@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NovahClaude</title>
+    <title>NovahChat Ultimate</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
@@ -12,25 +12,98 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
 </head>
 <body>
-    <div class="sidebar">
-        <img src="logo.svg" alt="Logo" class="logo">
-        <h2>NovahClaude Settings</h2>
-        <input type="password" id="apiKey" placeholder="NVIDIA API Key">
-        <input type="text" id="modelName" placeholder="Model (e.g., THUDM/glm-4-9b-chat)">
-        <button onclick="saveSettings()">Save Settings</button>
-        <button onclick="clearHistory()" class="danger">Clear Chat History</button>
-    </div>
-
-    <div class="main-chat">
-        <div id="chatBox" class="chat-box"></div>
-        
-        <div class="input-area">
-            <input type="file" id="imageUpload" accept="image/*">
-            <textarea id="userInput" placeholder="Message NovahClaude..."></textarea>
-            <button onclick="sendMessage()">Send</button>
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <div class="ai-icon-small">✨</div>
+            <h3>NovahChat</h3>
+            <button class="icon-btn" onclick="toggleSidebar()">✕</button>
+        </div>
+        <button class="new-chat-btn" onclick="startNewChat()">+ New Chat</button>
+        <div class="chat-history-list" id="historyList">
+            </div>
+        <div class="sidebar-footer">
+            <button class="settings-btn" onclick="openSettings()">⚙️ Settings</button>
         </div>
     </div>
-    
+
+    <div class="main-content">
+        <header>
+            <button class="icon-btn" onclick="toggleSidebar()">☰</button>
+            <h2 class="app-title"><span class="brand-text">NovahChat</span> Ultimate</h2>
+            <div style="width: 24px;"></div> </header>
+
+        <div id="chatContainer" class="chat-container">
+            <div id="welcomeScreen" class="welcome-screen">
+                <div class="ai-icon-large">✨</div>
+                <h2>Your advanced AI assistant powered by Google Gemini. Ask me anything!</h2>
+                <div class="suggestion-grid">
+                    <div class="suggestion-card" onclick="setInput('Help me write a Python function')">
+                        <span class="card-icon">&lt;&gt;</span>
+                        <div class="card-text">
+                            <h4>Code Assistant</h4>
+                            <p>Help me write a Python function</p>
+                        </div>
+                    </div>
+                    <div class="suggestion-card" onclick="setInput('Write a short story about space')">
+                        <span class="card-icon">💡</span>
+                        <div class="card-text">
+                            <h4>Creative Writing</h4>
+                            <p>Write a short story about space</p>
+                        </div>
+                    </div>
+                    <div class="suggestion-card" onclick="setInput('Solve quadratic equations')">
+                        <span class="card-icon">🧮</span>
+                        <div class="card-text">
+                            <h4>Math & Physics</h4>
+                            <p>Solve quadratic equations</p>
+                        </div>
+                    </div>
+                    <div class="suggestion-card" onclick="setInput('Explain quantum mechanics')">
+                        <span class="card-icon">📖</span>
+                        <div class="card-text">
+                            <h4>Learning</h4>
+                            <p>Explain quantum mechanics</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="chatBox" class="chat-box"></div>
+        </div>
+
+        <div class="input-area">
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+            <button class="attach-btn" onclick="document.getElementById('imageUpload').click()">📎</button>
+            <div class="input-wrapper">
+                <textarea id="userInput" placeholder="Message NovahChat..." rows="1"></textarea>
+            </div>
+            <button class="send-btn" onclick="sendMessage()">➤</button>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Settings</h3>
+                <button class="icon-btn" onclick="closeSettings()">✕</button>
+            </div>
+            <div class="modal-body">
+                <label>API Key</label>
+                <input type="password" id="apiKey" placeholder="••••••••••••••••••••••••">
+                
+                <label>Model</label>
+                <input type="text" id="modelName" value="gemini-2.5-flash">
+                
+                <label>🧠 AI Personality / System Instructions</label>
+                <textarea id="systemInstruction" placeholder="e.g., You are a helpful AI assistant who is also a senior web developer..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-btn" onclick="clearHistory()">Clear History</button>
+                <button class="primary-btn" onclick="saveSettings()">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
