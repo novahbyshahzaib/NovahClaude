@@ -66,3 +66,40 @@ pre { background: #1e1e2e; padding: 15px; border-radius: 8px; position: relative
 table { border-collapse: collapse; width: 100%; margin: 10px 0; }
 table, th, td { border: 1px solid #45475a; padding: 8px; }
 img { max-width: 200px; border-radius: 8px; }
+
+/* Mobile Responsive Design */
+@media (max-width: 768px) {
+    body {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: auto;
+        padding: 15px 10px;
+        border-right: none;
+        border-bottom: 1px solid #313244;
+        box-sizing: border-box;
+        align-items: center;
+    }
+
+    .sidebar h2 {
+        margin: 5px 0;
+        font-size: 1.2rem;
+        text-align: center;
+    }
+
+    .sidebar input, .sidebar button {
+        width: 90%;
+        margin-bottom: 5px;
+    }
+
+    .message {
+        max-width: 95%; /* Use more of the screen width on phones */
+    }
+
+    .input-area {
+        padding: 10px;
+        gap: 5px;
+    }
+}
