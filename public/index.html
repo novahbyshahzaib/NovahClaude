@@ -6,6 +6,7 @@
     <title>NovahChat Ultimate</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -14,52 +15,56 @@
 <body>
     <div id="sidebar" class="sidebar">
         <div class="sidebar-header">
-            <div class="ai-icon-small">✨</div>
+            <div class="ai-icon-small"><span class="material-icons-round" style="font-size: 18px;">auto_awesome</span></div>
             <h3>NovahChat</h3>
-            <button class="icon-btn" onclick="toggleSidebar()">✕</button>
+            <button class="icon-btn" onclick="toggleSidebar()"><span class="material-icons-round">close</span></button>
         </div>
-        <button class="new-chat-btn" onclick="startNewChat()">+ New Chat</button>
-        <div class="chat-history-list" id="historyList">
-            </div>
+        <button class="new-chat-btn" onclick="startNewChat()">
+            <span class="material-icons-round" style="font-size: 18px; margin-right: 5px;">add</span> New Chat
+        </button>
+        <div class="chat-history-list" id="historyList"></div>
         <div class="sidebar-footer">
-            <button class="settings-btn" onclick="openSettings()">⚙️ Settings</button>
+            <button class="settings-btn" onclick="openSettings()">
+                <span class="material-icons-round" style="font-size: 18px; margin-right: 5px;">settings</span> Settings
+            </button>
         </div>
     </div>
 
     <div class="main-content">
         <header>
-            <button class="icon-btn" onclick="toggleSidebar()">☰</button>
+            <button class="icon-btn" onclick="toggleSidebar()"><span class="material-icons-round">menu</span></button>
             <h2 class="app-title"><span class="brand-text">NovahChat</span> Ultimate</h2>
-            <div style="width: 24px;"></div> </header>
+            <div style="width: 24px;"></div>
+        </header>
 
         <div id="chatContainer" class="chat-container">
             <div id="welcomeScreen" class="welcome-screen">
-                <div class="ai-icon-large">✨</div>
+                <div class="ai-icon-large"><span class="material-icons-round" style="font-size: 36px;">auto_awesome</span></div>
                 <h2>Your advanced AI assistant powered by Google Gemini. Ask me anything!</h2>
                 <div class="suggestion-grid">
                     <div class="suggestion-card" onclick="setInput('Help me write a Python function')">
-                        <span class="card-icon">&lt;&gt;</span>
+                        <span class="material-icons-round card-icon">code</span>
                         <div class="card-text">
                             <h4>Code Assistant</h4>
                             <p>Help me write a Python function</p>
                         </div>
                     </div>
                     <div class="suggestion-card" onclick="setInput('Write a short story about space')">
-                        <span class="card-icon">💡</span>
+                        <span class="material-icons-round card-icon">lightbulb</span>
                         <div class="card-text">
                             <h4>Creative Writing</h4>
                             <p>Write a short story about space</p>
                         </div>
                     </div>
                     <div class="suggestion-card" onclick="setInput('Solve quadratic equations')">
-                        <span class="card-icon">🧮</span>
+                        <span class="material-icons-round card-icon">calculate</span>
                         <div class="card-text">
                             <h4>Math & Physics</h4>
                             <p>Solve quadratic equations</p>
                         </div>
                     </div>
                     <div class="suggestion-card" onclick="setInput('Explain quantum mechanics')">
-                        <span class="card-icon">📖</span>
+                        <span class="material-icons-round card-icon">menu_book</span>
                         <div class="card-text">
                             <h4>Learning</h4>
                             <p>Explain quantum mechanics</p>
@@ -71,13 +76,23 @@
             <div id="chatBox" class="chat-box"></div>
         </div>
 
-        <div class="input-area">
-            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
-            <button class="attach-btn" onclick="document.getElementById('imageUpload').click()">📎</button>
-            <div class="input-wrapper">
-                <textarea id="userInput" placeholder="Message NovahChat..." rows="1"></textarea>
+        <div class="input-container">
+            <div id="imagePreviewContainer" class="image-preview-container">
+                <img id="imagePreview" src="" alt="Preview">
+                <button class="remove-image-btn" onclick="removeImage()"><span class="material-icons-round" style="font-size: 16px;">close</span></button>
             </div>
-            <button class="send-btn" onclick="sendMessage()">➤</button>
+            <div class="input-area">
+                <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+                <button class="attach-btn" onclick="document.getElementById('imageUpload').click()">
+                    <span class="material-icons-round">attach_file</span>
+                </button>
+                <div class="input-wrapper">
+                    <textarea id="userInput" placeholder="Message NovahChat..." rows="1"></textarea>
+                </div>
+                <button class="send-btn" onclick="sendMessage()">
+                    <span class="material-icons-round" style="font-size: 20px; margin-left: 3px;">send</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -85,17 +100,15 @@
         <div class="modal">
             <div class="modal-header">
                 <h3>Settings</h3>
-                <button class="icon-btn" onclick="closeSettings()">✕</button>
+                <button class="icon-btn" onclick="closeSettings()"><span class="material-icons-round">close</span></button>
             </div>
             <div class="modal-body">
                 <label>API Key</label>
                 <input type="password" id="apiKey" placeholder="••••••••••••••••••••••••">
-                
                 <label>Model</label>
                 <input type="text" id="modelName" value="gemini-2.5-flash">
-                
                 <label>🧠 AI Personality / System Instructions</label>
-                <textarea id="systemInstruction" placeholder="e.g., You are a helpful AI assistant who is also a senior web developer..."></textarea>
+                <textarea id="systemInstruction" placeholder="e.g., You are a helpful AI assistant..."></textarea>
             </div>
             <div class="modal-footer">
                 <button class="secondary-btn" onclick="clearHistory()">Clear History</button>
@@ -103,7 +116,6 @@
             </div>
         </div>
     </div>
-
     <script src="app.js"></script>
 </body>
 </html>
