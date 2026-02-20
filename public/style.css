@@ -82,3 +82,12 @@ textarea { width: 100%; background: transparent; border: none; color: white; res
 /* Markdown & Code */
 pre { background: #111; padding: 15px; border-radius: 8px; position: relative; overflow-x: auto; margin: 10px 0;}
 .copy-btn { position: absolute; top: 5px; right: 5px; background: #333; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer; }
+
+/* Stop Button & Math Styles */
+.send-btn.stop { background: #f38ba8; }
+mjx-container[display="true"] {
+    margin: 15px 0 !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px 0;
+}
