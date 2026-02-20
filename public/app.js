@@ -1,9 +1,6 @@
-// Setup Markdown options with syntax highlighting
 marked.setOptions({
     highlight: function(code, lang) {
-        if (lang && hljs.getLanguage(lang)) {
-            return hljs.highlight(code, { language: lang }).value;
-        }
+        if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value;
         return hljs.highlightAuto(code).value;
     }
 });
@@ -11,31 +8,63 @@ marked.setOptions({
 let chatHistory = JSON.parse(localStorage.getItem('novahChatHistory')) || [];
 let uploadedImage = null;
 
-// Initialize settings and history
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('apiKey').value = localStorage.getItem('novahApiKey') || '';
-    document.getElementById('modelName').value = localStorage.getItem('novahModel') || 'meta/llama-3.1-405b-instruct';
-    renderHistory();
+    document.getElementById('modelName').value = localStorage.getItem('novahModel') || 'gemini-2.5-flash';
+    document.getElementById('systemInstruction').value = localStorage.getItem('novahSystem') || '';
     
-    // Handle Image Upload to Base64
     document.getElementById('imageUpload').addEventListener('change', function(e) {
         const file = e.target.files[0];
         const reader = new FileReader();
-        reader.onloadend = () => { uploadedImage = reader.result; };
+        reader.onloadend = () => { 
+            uploadedImage = reader.result;
+            document.querySelector('.attach-btn').style.background = '#8ab4f8';
+        };
         if (file) reader.readAsDataURL(file);
     });
+
+    if (chatHistory.length > 0) {
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('chatBox').style.display = 'block';
+        renderHistory();
+        updateHistoryList();
+    }
 });
+
+/* UI Controls */
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+function openSettings() { document.getElementById('settingsModal').style.display = 'flex'; toggleSidebar(); }
+function closeSettings() { document.getElementById('settingsModal').style.display = 'none'; }
+function setInput(text) { document.getElementById('userInput').value = text; }
 
 function saveSettings() {
     localStorage.setItem('novahApiKey', document.getElementById('apiKey').value);
     localStorage.setItem('novahModel', document.getElementById('modelName').value);
-    alert('Settings Saved!');
+    localStorage.setItem('novahSystem', document.getElementById('systemInstruction').value);
+    closeSettings();
 }
 
-function clearHistory() {
-    localStorage.removeItem('novahChatHistory');
+function startNewChat() {
     chatHistory = [];
+    localStorage.removeItem('novahChatHistory');
     document.getElementById('chatBox').innerHTML = '';
+    document.getElementById('chatBox').style.display = 'none';
+    document.getElementById('welcomeScreen').style.display = 'flex';
+    toggleSidebar();
+}
+
+function clearHistory() { startNewChat(); closeSettings(); }
+
+function updateHistoryList() {
+    const list = document.getElementById('historyList');
+    list.innerHTML = '';
+    const firstMsg = chatHistory.find(m => m.role === 'user');
+    if (firstMsg) {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerText = "💬 " + (typeof firstMsg.content === 'string' ? firstMsg.content.substring(0, 25) + '...' : 'Image Chat');
+        list.appendChild(item);
+    }
 }
 
 function renderHistory() {
@@ -47,15 +76,19 @@ function renderHistory() {
     MathJax.typesetPromise();
 }
 
+/* Chat Logic */
 async function sendMessage() {
     const input = document.getElementById('userInput');
     let text = input.value.trim();
-    if (!text) return;
+    if (!text && !uploadedImage) return;
+
+    document.getElementById('welcomeScreen').style.display = 'none';
+    document.getElementById('chatBox').style.display = 'block';
     
     const apiKey = localStorage.getItem('novahApiKey');
     const model = localStorage.getItem('novahModel');
+    const systemInstruction = localStorage.getItem('novahSystem');
 
-    // Handle image + text format
     let messageContent = text;
     if (uploadedImage) {
         messageContent = [
@@ -68,16 +101,23 @@ async function sendMessage() {
     localStorage.setItem('novahChatHistory', JSON.stringify(chatHistory));
     appendMessageUI('user', text, true);
     input.value = '';
-    uploadedImage = null; // reset image
+    document.querySelector('.attach-btn').style.background = '#333';
+    
+    const aiMessageDiv = appendMessageUI('ai', '', true);
+    uploadedImage = null;
     document.getElementById('imageUpload').value = '';
 
-    const aiMessageDiv = appendMessageUI('ai', '', true);
-    
+    // Prep messages array (inject system instruction if exists)
+    let apiMessages = [...chatHistory];
+    if (systemInstruction) {
+        apiMessages.unshift({ role: "system", content: systemInstruction });
+    }
+
     try {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: chatHistory, apiKey, model })
+            body: JSON.stringify({ messages: apiMessages, apiKey, model })
         });
 
         const reader = response.body.getReader();
@@ -97,42 +137,55 @@ async function sendMessage() {
                         const data = JSON.parse(line.slice(6));
                         const token = data.choices[0].delta.content || "";
                         aiFullText += token;
-                        
-                        // Parse markdown live
                         aiMessageDiv.innerHTML = marked.parse(aiFullText);
                     } catch (e) {}
                 }
             }
-            chatBox.scrollTop = chatBox.scrollHeight;
+            window.scrollTo(0, document.body.scrollHeight);
         }
 
         chatHistory.push({ role: 'assistant', content: aiFullText });
         localStorage.setItem('novahChatHistory', JSON.stringify(chatHistory));
+        updateHistoryList();
         
-        // Add Copy Buttons and Render Math
         addCopyButtons();
         MathJax.typesetPromise();
 
     } catch (error) {
-        aiMessageDiv.innerHTML = "Error connecting to server. Check API key.";
+        aiMessageDiv.innerHTML = "Error connecting to AI. Please check settings.";
     }
 }
 
 function appendMessageUI(role, text, isNew) {
     const chatBox = document.getElementById('chatBox');
-    const div = document.createElement('div');
-    div.className = `message ${role === 'user' ? 'user-msg' : 'ai-msg'}`;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message-wrapper';
+
+    const avatar = document.createElement('div');
+    if (role === 'user') {
+        avatar.className = 'user-avatar';
+        avatar.innerText = '👤';
+    } else {
+        avatar.className = 'ai-icon-small';
+        avatar.innerText = '✨';
+    }
+
+    const content = document.createElement('div');
+    content.className = 'message-content';
     
     if (role === 'user') {
-        div.textContent = typeof text === 'string' ? text : "Image + Text sent";
+        content.textContent = typeof text === 'string' ? text : "Image + Text sent";
     } else {
-        div.innerHTML = isNew ? '' : marked.parse(text);
+        content.innerHTML = isNew ? '<div class="typing-indicator">...</div>' : marked.parse(text);
     }
     
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    wrapper.appendChild(avatar);
+    wrapper.appendChild(content);
+    chatBox.appendChild(wrapper);
+    
+    window.scrollTo(0, document.body.scrollHeight);
     if (!isNew && role === 'ai') addCopyButtons();
-    return div;
+    return content;
 }
 
 function addCopyButtons() {
