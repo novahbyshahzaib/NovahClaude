@@ -91,3 +91,32 @@ mjx-container[display="true"] {
     overflow-y: hidden;
     padding: 10px 0;
 }
+
+/* Thought Process Styling */
+.thought-process {
+    margin: 10px 0 20px 0;
+    background: #1a1a1c;
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.thought-process summary {
+    padding: 12px 15px;
+    font-size: 0.9rem;
+    color: #a6accd;
+    cursor: pointer;
+    user-select: none;
+    background: #252529;
+    font-weight: bold;
+}
+.thought-process summary:hover {
+    background: #2e2e32;
+}
+.thought-content {
+    padding: 15px;
+    font-size: 0.9rem;
+    color: #888;
+    border-top: 1px solid #333;
+    font-style: italic;
+    white-space: pre-wrap;
+}
