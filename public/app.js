@@ -191,6 +191,7 @@ async function sendMessage() {
 
     abortController = new AbortController();
     let aiFullText = "";
+    let isThinking = false;
 
     try {
         const response = await fetch('/api/chat', {
@@ -216,11 +217,31 @@ async function sendMessage() {
                 if (line.startsWith('data: ') && line !== 'data: [DONE]') {
                     try {
                         const data = JSON.parse(line.slice(6));
-                        const token = data.choices[0].delta.content || "";
-                        aiFullText += token;
+                        const delta = data.choices[0].delta;
                         
-                        // Fix for MathJax: Double the backslashes so Marked.js doesn't delete them
-                        const safeMathText = aiFullText.replace(/\\/g, '\\\\');
+                        // Catch the hidden thought process
+                        if (delta.reasoning_content) {
+                            if (!isThinking) {
+                                isThinking = true;
+                                aiFullText += '<details class="thought-process"><summary>🧠 Thought Process</summary><div class="thought-content">';
+                            }
+                            aiFullText += delta.reasoning_content;
+                        }
+                        
+                        // Catch the actual response
+                        if (delta.content) {
+                            if (isThinking) {
+                                isThinking = false;
+                                aiFullText += '</div></details>\n\n';
+                            }
+                            aiFullText += delta.content;
+                        }
+                        
+                        // Auto-close tags temporarily so markdown doesn't break while streaming
+                        let displayHtml = aiFullText;
+                        if (isThinking) displayHtml += '</div></details>';
+                        
+                        const safeMathText = displayHtml.replace(/\\/g, '\\\\');
                         aiMessageDiv.innerHTML = marked.parse(safeMathText);
                     } catch (e) {}
                 }
@@ -230,6 +251,7 @@ async function sendMessage() {
 
     } catch (error) {
         if (error.name === 'AbortError') {
+            if (isThinking) aiFullText += '</div></details>\n\n';
             aiFullText += "\n\n*[Stopped by user]*";
             aiMessageDiv.innerHTML = marked.parse(aiFullText.replace(/\\/g, '\\\\'));
         } else {
@@ -270,6 +292,7 @@ function appendMessageUI(role, contentData, isNew) {
     
     if (role === 'user') {
         if (Array.isArray(contentData)) {
+            // Render the attached image in the chat
             contentDiv.innerHTML = `<img src="${contentData[1].image_url.url}" style="max-width: 250px; border-radius: 8px; display: block; margin-bottom: 10px;">` + 
                                    (contentData[0].text || "");
         } else {
