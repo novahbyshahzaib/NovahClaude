@@ -5,43 +5,50 @@ marked.setOptions({
     }
 });
 
+let allSessions = [];
+let currentSessionId = Date.now();
 let chatHistory = [];
 let uploadedImage = null;
+let isGenerating = false;
+let abortController = null;
 
-// Safely load history to prevent crashes
+// Load History & Migrate old single-chat to multi-chat system
 try {
-    chatHistory = JSON.parse(localStorage.getItem('novahChatHistory')) || [];
-} catch (e) {
-    chatHistory = [];
-    localStorage.removeItem('novahChatHistory');
-}
+    allSessions = JSON.parse(localStorage.getItem('novahSessions')) || [];
+    let oldHistory = JSON.parse(localStorage.getItem('novahChatHistory'));
+    if (oldHistory && oldHistory.length > 0 && allSessions.length === 0) {
+        allSessions.push({ id: Date.now(), title: "Previous Chat", messages: oldHistory });
+        localStorage.setItem('novahSessions', JSON.stringify(allSessions));
+        localStorage.removeItem('novahChatHistory');
+    }
+} catch (e) { allSessions = []; }
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('apiKey').value = localStorage.getItem('novahApiKey') || '';
     document.getElementById('modelName').value = localStorage.getItem('novahModel') || 'gemini-2.5-flash';
     document.getElementById('systemInstruction').value = localStorage.getItem('novahSystem') || '';
     
-    // Image Compression & Loading
+    // Always start on a fresh chat
+    startNewChat();
+    updateHistoryList();
+
+    // Image Upload Logic
     document.getElementById('imageUpload').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
-        
         const reader = new FileReader();
         reader.onload = function(event) {
             const img = new Image();
             img.onload = function() {
-                // Shrink image to prevent QuotaExceededError crash
                 const canvas = document.createElement('canvas');
                 const MAX_WIDTH = 800;
                 const scaleSize = MAX_WIDTH / img.width;
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scaleSize;
-                
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 uploadedImage = canvas.toDataURL('image/jpeg', 0.8);
                 
-                // Show preview UI
                 document.getElementById('imagePreview').src = uploadedImage;
                 document.getElementById('imagePreviewContainer').style.display = 'block';
                 document.querySelector('.attach-btn').style.color = '#8ab4f8';
@@ -50,13 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         reader.readAsDataURL(file);
     });
-
-    if (chatHistory.length > 0) {
-        document.getElementById('welcomeScreen').style.display = 'none';
-        document.getElementById('chatBox').style.display = 'block';
-        renderHistory();
-        updateHistoryList();
-    }
 });
 
 function removeImage() {
@@ -78,27 +78,51 @@ function saveSettings() {
     closeSettings();
 }
 
+// Sidebar History Management
 function startNewChat() {
+    currentSessionId = Date.now();
     chatHistory = [];
-    localStorage.removeItem('novahChatHistory');
     document.getElementById('chatBox').innerHTML = '';
     document.getElementById('chatBox').style.display = 'none';
     document.getElementById('welcomeScreen').style.display = 'flex';
-    toggleSidebar();
+    document.getElementById('sidebar').classList.remove('open');
 }
 
-function clearHistory() { startNewChat(); closeSettings(); }
+function loadSession(id) {
+    const session = allSessions.find(s => s.id === id);
+    if (!session) return;
+    currentSessionId = session.id;
+    chatHistory = session.messages;
+    
+    document.getElementById('welcomeScreen').style.display = 'none';
+    document.getElementById('chatBox').style.display = 'block';
+    
+    renderHistory();
+    toggleSidebar();
+}
 
 function updateHistoryList() {
     const list = document.getElementById('historyList');
     list.innerHTML = '';
-    const firstMsg = chatHistory.find(m => m.role === 'user');
-    if (firstMsg) {
+    
+    // Sort so newest is at the top
+    const sortedSessions = [...allSessions].sort((a, b) => b.id - a.id);
+    
+    sortedSessions.forEach(session => {
         const item = document.createElement('div');
         item.className = 'history-item';
-        item.innerText = "💬 " + (typeof firstMsg.content === 'string' ? firstMsg.content.substring(0, 25) + '...' : 'Image Attached');
+        item.innerText = "💬 " + session.title;
+        item.onclick = () => loadSession(session.id);
         list.appendChild(item);
-    }
+    });
+}
+
+function clearAllHistory() {
+    allSessions = [];
+    localStorage.removeItem('novahSessions');
+    updateHistoryList();
+    startNewChat();
+    closeSettings();
 }
 
 function renderHistory() {
@@ -111,6 +135,12 @@ function renderHistory() {
 }
 
 async function sendMessage() {
+    // If AI is typing, this button acts as a STOP button
+    if (isGenerating) {
+        if (abortController) abortController.abort();
+        return;
+    }
+
     const input = document.getElementById('userInput');
     let text = input.value.trim();
     if (!text && !uploadedImage) return;
@@ -132,36 +162,48 @@ async function sendMessage() {
 
     chatHistory.push({ role: 'user', content: messageContent });
     
-    // Safely save history
-    try {
-        localStorage.setItem('novahChatHistory', JSON.stringify(chatHistory));
-    } catch (e) {
-        console.warn("History too large to save locally.");
+    // Save to multi-session storage
+    let sessionIndex = allSessions.findIndex(s => s.id === currentSessionId);
+    if (sessionIndex === -1) {
+        let titleText = typeof messageContent === 'string' ? messageContent : (messageContent[0]?.text || "Image Attached");
+        allSessions.push({ id: currentSessionId, title: titleText.substring(0, 25) + '...', messages: chatHistory });
+    } else {
+        allSessions[sessionIndex].messages = chatHistory;
     }
-    
+    try { localStorage.setItem('novahSessions', JSON.stringify(allSessions)); } catch(e) {}
+    updateHistoryList();
+
     appendMessageUI('user', messageContent, true);
     
-    // Reset inputs
     input.value = '';
     removeImage();
     
     const aiMessageDiv = appendMessageUI('ai', '', true);
 
+    // Toggle Send Button to Stop Button
+    isGenerating = true;
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.classList.add('stop');
+    sendBtn.innerHTML = '<span class="material-icons-round" style="font-size: 20px;">stop</span>';
+
     let apiMessages = [...chatHistory];
     if (systemInstruction) apiMessages.unshift({ role: "system", content: systemInstruction });
+
+    abortController = new AbortController();
+    let aiFullText = "";
 
     try {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: apiMessages, apiKey, model })
+            body: JSON.stringify({ messages: apiMessages, apiKey, model }),
+            signal: abortController.signal
         });
 
         if (!response.ok) throw new Error("API Error");
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let aiFullText = "";
 
         while (true) {
             const { done, value } = await reader.read();
@@ -176,22 +218,36 @@ async function sendMessage() {
                         const data = JSON.parse(line.slice(6));
                         const token = data.choices[0].delta.content || "";
                         aiFullText += token;
-                        aiMessageDiv.innerHTML = marked.parse(aiFullText);
+                        
+                        // Fix for MathJax: Double the backslashes so Marked.js doesn't delete them
+                        const safeMathText = aiFullText.replace(/\\/g, '\\\\');
+                        aiMessageDiv.innerHTML = marked.parse(safeMathText);
                     } catch (e) {}
                 }
             }
             window.scrollTo(0, document.body.scrollHeight);
         }
 
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            aiFullText += "\n\n*[Stopped by user]*";
+            aiMessageDiv.innerHTML = marked.parse(aiFullText.replace(/\\/g, '\\\\'));
+        } else {
+            aiMessageDiv.innerHTML = "Error connecting to AI. Please check your API key and model name.";
+        }
+    } finally {
+        // Reset UI and save final response
+        isGenerating = false;
+        sendBtn.classList.remove('stop');
+        sendBtn.innerHTML = '<span class="material-icons-round" style="font-size: 20px; margin-left: 3px;">send</span>';
+        
         chatHistory.push({ role: 'assistant', content: aiFullText });
-        try { localStorage.setItem('novahChatHistory', JSON.stringify(chatHistory)); } catch(e) {}
-        updateHistoryList();
+        let sIdx = allSessions.findIndex(s => s.id === currentSessionId);
+        if (sIdx > -1) allSessions[sIdx].messages = chatHistory;
+        try { localStorage.setItem('novahSessions', JSON.stringify(allSessions)); } catch(e) {}
         
         addCopyButtons();
         if (window.MathJax) MathJax.typesetPromise();
-
-    } catch (error) {
-        aiMessageDiv.innerHTML = "Error connecting to AI. Please check your API key and model name.";
     }
 }
 
@@ -214,14 +270,15 @@ function appendMessageUI(role, contentData, isNew) {
     
     if (role === 'user') {
         if (Array.isArray(contentData)) {
-            // Render the attached image in the chat
             contentDiv.innerHTML = `<img src="${contentData[1].image_url.url}" style="max-width: 250px; border-radius: 8px; display: block; margin-bottom: 10px;">` + 
                                    (contentData[0].text || "");
         } else {
             contentDiv.textContent = contentData;
         }
     } else {
-        contentDiv.innerHTML = isNew ? '<div style="color: #888;">Thinking...</div>' : marked.parse(contentData);
+        // If loading from history, safely format the math
+        const safeText = isNew ? '' : (typeof contentData === 'string' ? contentData.replace(/\\/g, '\\\\') : '');
+        contentDiv.innerHTML = isNew ? '<div style="color: #888;">Thinking...</div>' : marked.parse(safeText);
     }
     
     wrapper.appendChild(avatar);
