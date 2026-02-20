@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovahClaude</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <img src="logo.svg" alt="Logo" class="logo">
+        <h2>NovahClaude Settings</h2>
+        <input type="password" id="apiKey" placeholder="NVIDIA API Key">
+        <input type="text" id="modelName" placeholder="Model (e.g., THUDM/glm-4-9b-chat)">
+        <button onclick="saveSettings()">Save Settings</button>
+        <button onclick="clearHistory()" class="danger">Clear Chat History</button>
+    </div>
+
+    <div class="main-chat">
+        <div id="chatBox" class="chat-box"></div>
+        
+        <div class="input-area">
+            <input type="file" id="imageUpload" accept="image/*">
+            <textarea id="userInput" placeholder="Message NovahClaude..."></textarea>
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
