@@ -7,7 +7,18 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true
+            },
+            chtml: { scale: 1.15 } /* Makes math slightly larger and readable */
+        };
+    </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
@@ -72,7 +83,6 @@
                     </div>
                 </div>
             </div>
-            
             <div id="chatBox" class="chat-box"></div>
         </div>
 
@@ -89,7 +99,7 @@
                 <div class="input-wrapper">
                     <textarea id="userInput" placeholder="Message NovahChat..." rows="1"></textarea>
                 </div>
-                <button class="send-btn" onclick="sendMessage()">
+                <button id="sendBtn" class="send-btn" onclick="sendMessage()">
                     <span class="material-icons-round" style="font-size: 20px; margin-left: 3px;">send</span>
                 </button>
             </div>
@@ -111,7 +121,7 @@
                 <textarea id="systemInstruction" placeholder="e.g., You are a helpful AI assistant..."></textarea>
             </div>
             <div class="modal-footer">
-                <button class="secondary-btn" onclick="clearHistory()">Clear History</button>
+                <button class="secondary-btn" onclick="clearAllHistory()">Clear All History</button>
                 <button class="primary-btn" onclick="saveSettings()">Save Settings</button>
             </div>
         </div>
